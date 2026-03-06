@@ -1,0 +1,82 @@
+"mining":
+  "enabled": true,
+  "modes": "A" # A=Single B=Multi C=Single+conditioning D=Multi+conditioning
+  "feature_pool": [
+    "mom_5",
+    "mom_10"
+    ]
+  "n_jobs": -1  # Jumlah parallel worker untuk mining (-1 = semua core)
+  "batch_size": 500  # Tasks per batch — kecilkan ke 200 jika WinError 1450
+
+"data":
+  path: "data/Coinglass/data_ohlcv_price_-_binance_postprocessed w regime ONLY.csv"
+  date_column: date
+  regime_col: "regime_wf"
+
+"feature_builder": 
+  technical : true
+  onchain : false
+  feature_windows: [5, 10]
+  enable_transform: false  # Enable transform layer (zscore, percentile, volatility scaling, etc.)
+  enable_interaction: false  # Enable interaction layer (fixed + optional dynamic)
+  dynamic_interactions: false  # Enable dynamic pairwise interactions (very expensive!)
+
+"feature_transform":
+  zscore_windows: [20]
+  percentile_windows: [20]
+  volscale_windows: [20]
+
+"feature_pruning":
+  enabled: false               # Aktifkan pruning fitur berkorelasi tinggi
+  correlation_threshold: 0.95 # Drop fitur jika korelasi Pearson > threshold ini
+
+"modeling": {
+    "use_regime_conditioned": false, # //Jika true maka ml hanya train "per regime" dan plot per regime , jika false ml akan train pada "seluruh data" dan plot seluruh regime tetapi dari return global dipisah per regime
+    "use_allowed_regimes": false, # //Jika true ml akan train "regime tertentu yang diijinkan" menuju ml
+    "allowed_regimes": [2, 8],  # //Regime tertentu yang diijinkan oleh "use_allowed_regimes"
+    "min_samples_per_regime": 50,
+}
+
+"metric_filter":
+  "sharpe_oos_min":    0.1    # Minimum Sharpe OOS  — false = disabled
+  "overfit_ratio_min": 0.1    # Minimum OOS/IS ratio — false = disabled
+  "psr_min":           0.3    # Minimum PSR          — false = disabled
+  "dsr_min":           0.30   # Minimum DSR post-hoc — false = disabled
+
+mode: "walkforward"   # "simple/walkforward"
+split_ratio: 0.7
+walkforward:
+  train_size: 8640   # 24*30*12 = 1 year hourly
+  test_size: 720     # 24*30*1  = 1 month hourly
+  step_size: 720
+  n_jobs: -1         # Jumlah parallel worker untuk walk-forward (-1 = semua core)
+
+# Triple Barrier Labeling
+tp_pct: 0.05         # ±5% take-profit
+max_hold: 100        # max bars to hold before neutral label (also used as GAP)
+
+horizon: 100         # kept for backward compat (= max_hold)
+prob_threshold: 0.55           # fallback jika optimize_threshold: false
+
+optimize_threshold: true       # true = cari threshold optimal di IS, apply ke OOS
+threshold_grid: [0.50, 0.52, 0.55, 0.58, 0.60, 0.63, 0.65, 0.70]
+threshold_min_trades: 10       # minimum IS trades agar kandidat threshold valid
+threshold_precision_target: 0.55  # avg precision (long+short) minimum agar threshold diterima
+direction : both #long, short, both
+
+ml:
+  n_estimators: 300
+  learning_rate: 0.03
+  max_depth: 4
+  subsample: 0.9
+  colsample_bytree: 0.9
+  min_child_weight: 3
+  gamma: 1
+  nthread: 1         # 1 thread per model saat parallel mining (hindari CPU oversubscription)
+
+random_state: 42
+
+
+"logging":
+  run_type: atomic
+  mining_mode_desc:
